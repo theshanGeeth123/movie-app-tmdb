@@ -5,7 +5,7 @@ function NavBar() {
   return (
     <>
 
-        <nav className='bg-black text-white h-15 flex justify-between px-20 max-sm:flex-col max-sm:items-center max-sm:justify-center max-sm:h-30 fixed w-full '>
+        <nav className='bg-black text-white h-15 flex justify-between px-20 max-sm:flex-col max-sm:items-center max-sm:justify-center max-sm:h-30 fixed w-full z-100'>
             <div className='text-blue-300 my-auto text-[16px] sm:text-[18px] md:text-[20px] lg:text-[22px] font-medium
             '>
                 <Link className='bg-gradient-to-l from-blue-500 to-blue-100 bg-clip-text text-transparent' to="/home">Movie App</Link>

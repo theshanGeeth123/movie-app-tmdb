@@ -8,6 +8,7 @@ import NavBar from "./components/NavBar";
 import Favourites from "./pages/Favourites";
 
 function App() {
+  
   return (
     <>
       <NavBar />
@@ -17,6 +18,7 @@ function App() {
         <Route path="/home" element={<Home />}></Route>
         <Route path="/favourites" element={<Favourites />}></Route>
       </Routes>
+
     </>
   );
 }
