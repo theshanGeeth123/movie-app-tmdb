@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import React ,{ useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 
 function MovieCard({ movie }) {
   const [isFavourite, setIsFavourite] = useState(false);
@@ -28,6 +28,9 @@ function MovieCard({ movie }) {
   };
 
   return (
+   <>
+
+   <Link to={`/movieDetails/${movie.id}`} >
     <div className="group w-full bg-[#292828] rounded-[8px] overflow-hidden text-white cursor-pointer">
       <div className="relative aspect-[2/3] w-full overflow-hidden bg-black">
         <img
@@ -48,9 +51,14 @@ function MovieCard({ movie }) {
 
       <div className="h-20">
         <p className="px-3 py-3 font-semibold">{movie.title}</p>
-        <p className="px-3 text-xs text-gray-400">{movie.release_date}</p>
+        <p className="px-3 text-xs text-gray-400">{movie.release_date?.split("-")[0]}</p>
       </div>
     </div>
+
+    </Link>
+
+    </>
+ 
   );
 }
 

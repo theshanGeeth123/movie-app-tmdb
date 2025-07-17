@@ -23,3 +23,11 @@ export const searchMovies = async (query) => {
   return data.results;
 
 };
+export const getMovieById = async (id) => {
+  const response = await fetch(
+    `${BASE_URL}/movie/${id}?api_key=${API_KEY}&language=en-US`
+  );
+  const data = await response.json();
+  return data;
+};
+
