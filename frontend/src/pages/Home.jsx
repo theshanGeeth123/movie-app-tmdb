@@ -2,112 +2,148 @@ import React, { useEffect, useState, useRef } from "react";
 import MovieCard from "../components/MovieCard";
 import { getPopularMovies, searchMovies } from "../Services/Api";
 
-function Home() {
+/**
+ * Mobile-first, accessible, and responsive Home component
+ * FIXED: Search input not visible on some layouts
+ *  - Restores page top padding to avoid overlap with any global fixed navbar
+ *  - Moves search bar into normal flow (non-sticky) for maximum compatibility
+ *  - Ensures high z-index is not required; adds clear visual ring/border
+ */
+export default function Home() {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-
   const debounceTimeout = useRef(null);
+  const isMounted = useRef(true);
 
+  // Load popular movies on mount
   useEffect(() => {
+    isMounted.current = true;
     const loadPopularMovies = async () => {
       try {
         const popularMovies = await getPopularMovies();
-        setMovies(popularMovies);
+        if (isMounted.current) setMovies(popularMovies);
       } catch (error) {
         console.log(error);
       } finally {
-        setLoading(false);
+        if (isMounted.current) setLoading(false);
       }
     };
     loadPopularMovies();
+    return () => {
+      isMounted.current = false;
+      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    };
   }, []);
 
+  // Debounced search on query change
   useEffect(() => {
- 
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
 
     debounceTimeout.current = setTimeout(() => {
-      if (searchQuery.trim() === "") {
+      const run = async () => {
         setLoading(true);
-        getPopularMovies()
-          .then((popularMovies) => setMovies(popularMovies))
-          .catch(console.log)
-          .finally(() => setLoading(false));
-      } else {
-        
-        setLoading(true);
-        searchMovies(searchQuery)
-          .then((results) => setMovies(results))
-          .catch(console.log)
-          .finally(() => setLoading(false));
-      }
-    }, 500); 
+        try {
+          if (searchQuery.trim() === "") {
+            const popularMovies = await getPopularMovies();
+            if (isMounted.current) setMovies(popularMovies);
+          } else {
+            const results = await searchMovies(searchQuery);
+            if (isMounted.current) setMovies(results);
+          }
+        } catch (error) {
+          console.log(error);
+        } finally {
+          if (isMounted.current) setLoading(false);
+        }
+      };
+      run();
+    }, 450);
 
     return () => clearTimeout(debounceTimeout.current);
   }, [searchQuery]);
 
-  
   const handleSearch = async (e) => {
     e.preventDefault();
-
-   
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-
     setLoading(true);
-
     try {
       if (searchQuery.trim() === "") {
         const popularMovies = await getPopularMovies();
-        setMovies(popularMovies);
+        if (isMounted.current) setMovies(popularMovies);
       } else {
         const searchResults = await searchMovies(searchQuery);
-        setMovies(searchResults);
+        if (isMounted.current) setMovies(searchResults);
       }
     } catch (error) {
       console.log(error);
     } finally {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
     }
   };
 
+  const handleClear = () => setSearchQuery("");
+
   return (
-    <div className="sm:pt-[60px] max-sm:pt-[120px] w-full bg-[#1b1b1c] min-h-[100vh]">
-      <div className="w-[90%] m-auto mt-10 bg-[#1b1b1c]">
-        <div className="w-full max-w-[80%] m-auto mb-10">
-          <div className="flex justify-center pt-2 gap-x-3 mx-10">
-            <form onSubmit={handleSearch} className="whitespace-nowrap">
-              <input
-                type="text"
-                placeholder="Search for movies..."
-                className="bg-[#5d5d5f] min-w-[300px] max-w-[400px] text-white py-3 px-4 border-2 border-transparent 
-              focus:border-white outline-none transition-colors duration-200
-              rounded-[5px]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <button
+    <div className="sm:pt-[60px] max-sm:pt-[120px] w-full bg-[#1b1b1c] min-h-screen">
+      <div className="w-[92%] max-w-6xl mx-auto">
+        {/* SEARCH BAR (non-sticky for compatibility) */}
+        <section className="pt-4 sm:pt-6 flex justify-center">
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2 sm:gap-3 min-w-[500px] max-md:min-w-[300px]" role="search" aria-label="Movie search">
+            <label htmlFor="movie-search" className="sr-only">Search for movies</label>
+            <input
+              id="movie-search"
+              type="search"
+              inputMode="search"
+              enterKeyHint="search"
+              placeholder="Search for movies..."
+              className="w-full text-white placeholder-white/70 bg-[#2a2a2c] rounded-lg py-3 px-4 outline-none ring-1 ring-white/15 focus:ring-2 focus:ring-white/40 border border-white/10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoComplete="off"
+            />
+            <div className="flex gap-2">
+              {/* <button
                 type="submit"
-                className="bg-red-600 w-[80px] rounded-[5px] text-white min-w-[80px] cursor-pointer ml-2 h-full"
+                className="flex-1 sm:flex-none rounded-lg px-4 py-3 text-white font-medium bg-red-600 active:scale-[0.99] transition"
               >
                 Search
-              </button>
-            </form>
-          </div>
+              </button> */}
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="rounded-lg px-4 py-3 text-white font-medium bg-white/10 hover:bg-white/15 active:scale-[0.99] transition"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </form>
+        </section>
+
+        {/* STATUS */}
+        <div className="mt-3 mb-4 text-white/70 text-sm">
+          {searchQuery ? (
+            <span>Showing results for <span className="text-white font-medium">“{searchQuery}”</span></span>
+          ) : (
+            <span>Popular movies</span>
+          )}
         </div>
 
-        <div className="w-full bg-[#1b1b1c] grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-10 ">
+        {/* GRID */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 pb-12">
           {loading ? (
-            <div className="text-white">Loading ...</div>
-          ) : movies.length > 0 ? (
+            Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="animate-pulse rounded-lg bg-white/5 aspect-[2/3]" aria-hidden="true" />
+            ))
+          ) : movies && movies.length > 0 ? (
             movies.map((movie) => <MovieCard movie={movie} key={movie.id} />)
           ) : (
-            <div className="text-white">No movies found.</div>
+            <div className="col-span-full text-center text-white/80 py-10">No movies found.</div>
           )}
         </div>
       </div>
     </div>
   );
 }
-
-export default Home;

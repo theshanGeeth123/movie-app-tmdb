@@ -1,0 +1,5 @@
+{
+  "appId": "com.example.movieapp",
+  "appName": "Movie App",
+  "webDir": "dist"
+}
