@@ -1,119 +1,139 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import MovieCard from "../components/MovieCard";
 import { getPopularMovies, searchMovies } from "../Services/Api";
 
-/**
- * Mobile-first, accessible, and responsive Home component
- * FIXED: Search input not visible on some layouts
- *  - Restores page top padding to avoid overlap with any global fixed navbar
- *  - Moves search bar into normal flow (non-sticky) for maximum compatibility
- *  - Ensures high z-index is not required; adds clear visual ring/border
- */
 export default function Home() {
   const [movies, setMovies] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);   // skeleton only on first paint
+  const [searchLoading, setSearchLoading] = useState(false);    // subtle spinner on input
   const [searchQuery, setSearchQuery] = useState("");
+
   const debounceTimeout = useRef(null);
   const isMounted = useRef(true);
+  const requestIdRef = useRef(0); // guards against stale responses
 
-  // Load popular movies on mount
+  // ---- Helpers --------------------------------------------------------------
+  const runRequest = async (fn) => {
+    const myId = ++requestIdRef.current;
+    try {
+      const data = await fn();
+      // Ignore if a newer request started since this one
+      if (!isMounted.current || myId !== requestIdRef.current) return;
+      setMovies(Array.isArray(data) ? data : []);
+    } catch (err) {
+      // You can toast this if you have a toaster
+      console.error(err);
+      if (!isMounted.current || myId !== requestIdRef.current) return;
+      // Keep previous list on error so UI doesn’t go blank
+    }
+  };
+
+  // ---- Initial load: popular movies ----------------------------------------
   useEffect(() => {
     isMounted.current = true;
-    const loadPopularMovies = async () => {
-      try {
-        const popularMovies = await getPopularMovies();
-        if (isMounted.current) setMovies(popularMovies);
-      } catch (error) {
-        console.log(error);
-      } finally {
-        if (isMounted.current) setLoading(false);
-      }
-    };
-    loadPopularMovies();
+
+    (async () => {
+      setInitialLoading(true);
+      await runRequest(getPopularMovies);
+      if (isMounted.current) setInitialLoading(false);
+    })();
+
     return () => {
       isMounted.current = false;
       if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+      // bump requestId so any late responses are ignored
+      requestIdRef.current++;
     };
   }, []);
 
-  // Debounced search on query change
+  // ---- Debounced search -----------------------------------------------------
   useEffect(() => {
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
 
-    debounceTimeout.current = setTimeout(() => {
-      const run = async () => {
-        setLoading(true);
-        try {
-          if (searchQuery.trim() === "") {
-            const popularMovies = await getPopularMovies();
-            if (isMounted.current) setMovies(popularMovies);
-          } else {
-            const results = await searchMovies(searchQuery);
-            if (isMounted.current) setMovies(results);
-          }
-        } catch (error) {
-          console.log(error);
-        } finally {
-          if (isMounted.current) setLoading(false);
-        }
-      };
-      run();
+    debounceTimeout.current = setTimeout(async () => {
+      // If empty -> show popular, but don’t flash skeleton
+      setSearchLoading(true);
+      await runRequest(
+        searchQuery.trim() === "" ? getPopularMovies : () => searchMovies(searchQuery)
+      );
+      if (isMounted.current) setSearchLoading(false);
     }, 450);
 
-    return () => clearTimeout(debounceTimeout.current);
+    return () => {
+      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    };
   }, [searchQuery]);
 
+  // ---- Handlers -------------------------------------------------------------
   const handleSearch = async (e) => {
     e.preventDefault();
     if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-    setLoading(true);
-    try {
-      if (searchQuery.trim() === "") {
-        const popularMovies = await getPopularMovies();
-        if (isMounted.current) setMovies(popularMovies);
-      } else {
-        const searchResults = await searchMovies(searchQuery);
-        if (isMounted.current) setMovies(searchResults);
-      }
-    } catch (error) {
-      console.log(error);
-    } finally {
-      if (isMounted.current) setLoading(false);
-    }
+    setSearchLoading(true);
+    await runRequest(
+      searchQuery.trim() === "" ? getPopularMovies : () => searchMovies(searchQuery)
+    );
+    if (isMounted.current) setSearchLoading(false);
   };
 
   const handleClear = () => setSearchQuery("");
 
+  // ---- UI -------------------------------------------------------------------
+  const showSkeleton = initialLoading;
+  const showEmpty = !showSkeleton && !searchLoading && movies?.length === 0;
+
   return (
     <div className="sm:pt-[60px] max-sm:pt-[120px] w-full bg-[#1b1b1c] min-h-screen">
       <div className="w-[92%] max-w-6xl mx-auto">
-        {/* SEARCH BAR (non-sticky for compatibility) */}
+        {/* SEARCH BAR */}
         <section className="pt-4 sm:pt-6 flex justify-center">
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2 sm:gap-3 min-w-[500px] max-md:min-w-[300px]" role="search" aria-label="Movie search">
-            <label htmlFor="movie-search" className="sr-only">Search for movies</label>
-            <input
-              id="movie-search"
-              type="search"
-              inputMode="search"
-              enterKeyHint="search"
-              placeholder="Search for movies..."
-              className="w-full text-white placeholder-white/70 bg-[#2a2a2c] rounded-lg py-3 px-4 outline-none ring-1 ring-white/15 focus:ring-2 focus:ring-white/40 border border-white/10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              autoComplete="off"
-            />
+          <form
+            onSubmit={handleSearch}
+            className="flex flex-col sm:flex-row gap-2 sm:gap-3 min-w-[500px] max-md:min-w-[300px]"
+            role="search"
+            aria-label="Movie search"
+          >
+            <label htmlFor="movie-search" className="sr-only">
+              Search for movies
+            </label>
+
+            <div className="relative w-full">
+              <input
+                id="movie-search"
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                placeholder="Search for movies..."
+                className="w-full text-white placeholder-white/70 bg-[#2a2a2c] rounded-lg py-3 pl-4 pr-10 outline-none ring-1 ring-white/15 focus:ring-2 focus:ring-white/40 border border-white/10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoComplete="off"
+                aria-busy={searchLoading ? "true" : "false"}
+              />
+              {/* Subtle inline spinner during search (keeps grid steady) */}
+              {searchLoading && (
+                <svg
+                  className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 animate-spin"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" className="opacity-25" />
+                  <path
+                    d="M4 12a8 8 0 0 1 8-8"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="none"
+                    className="opacity-75"
+                  />
+                </svg>
+              )}
+            </div>
+
             <div className="flex gap-2">
-              {/* <button
-                type="submit"
-                className="flex-1 sm:flex-none rounded-lg px-4 py-3 text-white font-medium bg-red-600 active:scale-[0.99] transition"
-              >
-                Search
-              </button> */}
               {searchQuery && (
                 <button
                   type="button"
                   onClick={handleClear}
-                  className="rounded-lg px-4 py-3 text-white font-medium bg-white/10 hover:bg-white/15 active:scale-[0.99] transition"
+                  className="rounded-lg px-4 py-3 text-white font-medium bg-white/10 hover:bg白/15 hover:bg-white/15 active:scale-[0.99] transition"
                 >
                   Clear
                 </button>
@@ -125,7 +145,9 @@ export default function Home() {
         {/* STATUS */}
         <div className="mt-3 mb-4 text-white/70 text-sm">
           {searchQuery ? (
-            <span>Showing results for <span className="text-white font-medium">“{searchQuery}”</span></span>
+            <span>
+              Showing results for <span className="text-white font-medium">“{searchQuery}”</span>
+            </span>
           ) : (
             <span>Popular movies</span>
           )}
@@ -133,15 +155,17 @@ export default function Home() {
 
         {/* GRID */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 md:gap-5 pb-12">
-          {loading ? (
-            Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="animate-pulse rounded-lg bg-white/5 aspect-[2/3]" aria-hidden="true" />
-            ))
-          ) : movies && movies.length > 0 ? (
-            movies.map((movie) => <MovieCard movie={movie} key={movie.id} />)
-          ) : (
-            <div className="col-span-full text-center text-white/80 py-10">No movies found.</div>
-          )}
+          {showSkeleton
+            ? Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="animate-pulse rounded-lg bg-white/5 aspect-[2/3]" aria-hidden="true" />
+              ))
+            : showEmpty
+            ? (
+              <div className="col-span-full text-center text-white/80 py-10">No movies found.</div>
+            )
+            : (
+              movies.map((m) => <MovieCard movie={m} key={m.id} />)
+            )}
         </div>
       </div>
     </div>

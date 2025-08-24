@@ -1,8 +1,19 @@
 import React ,{ useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import AOS from 'aos';
+import 'aos/dist/aos.css';
 
 function MovieCard({ movie }) {
   const [isFavourite, setIsFavourite] = useState(false);
+
+   useEffect(() => {
+    AOS.init({
+        // ms
+      easing: "ease-out",
+      offset: 120,     // px from the viewport
+      once: true,      // whether animation should happen only once
+    });
+  }, []);
 
   useEffect(() => {
     const favs = JSON.parse(localStorage.getItem("favs")) || [];
@@ -31,7 +42,7 @@ function MovieCard({ movie }) {
    <>
 
    
-    <div className="group w-full bg-[#292828] rounded-[8px] overflow-hidden text-white cursor-pointer">
+    <div className="group w-full bg-[#292828] rounded-[8px] overflow-hidden text-white cursor-pointer" data-aos="fade-up">
       <div className="relative aspect-[2/3] w-full overflow-hidden bg-black">
         <img
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
